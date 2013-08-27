@@ -1,3 +1,4 @@
+package com.viewpagerindicator;
 /*
  * Copyright (C) 2011 The Android Open Source Project
  * Copyright (C) 2011 Jake Wharton
@@ -14,8 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.viewpagerindicator;
 
+
+import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
+import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
 import android.content.Context;
 import android.support.v4.view.PagerAdapter;
 import android.support.v4.view.ViewPager;
@@ -26,9 +29,6 @@ import android.view.ViewGroup;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-
-import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
-import static android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
 
 /**
  * This widget implements the dynamic action bar tab behavior that can change
@@ -49,6 +49,10 @@ public class TabPageIndicator extends HorizontalScrollView implements PageIndica
          */
         void onTabReselected(int position);
     }
+    
+    public interface OnTabFocusChangeListener {
+        void onFocusChangeListener(int position);
+    }
 
     private Runnable mTabSelector;
 
@@ -63,6 +67,21 @@ public class TabPageIndicator extends HorizontalScrollView implements PageIndica
             }
         }
     };
+    
+    private final OnFocusChangeListener mFocusChangeListener = new OnFocusChangeListener() {
+		@Override
+		public void onFocusChange(View v, boolean hasFocus) {
+			if(hasFocus && v instanceof TabView)
+			{
+				TabView tab = (TabView) v;
+				setCurrentItem(tab.mIndex);
+				if(mTabFocusChangeListener!=null)
+				{
+					mTabFocusChangeListener.onFocusChangeListener(tab.mIndex);
+				}
+			}
+		}
+    };
 
     private final IcsLinearLayout mTabLayout;
 
@@ -71,8 +90,15 @@ public class TabPageIndicator extends HorizontalScrollView implements PageIndica
 
     private int mMaxTabWidth;
     private int mSelectedTabIndex;
+    private int mSelectedTabId;
+    
+    public int getSelectedTabId()
+    {
+    	return mSelectedTabId;
+    }
 
     private OnTabReselectedListener mTabReselectedListener;
+    private OnTabFocusChangeListener mTabFocusChangeListener;
 
     public TabPageIndicator(Context context) {
         this(context, null);
@@ -88,6 +114,11 @@ public class TabPageIndicator extends HorizontalScrollView implements PageIndica
 
     public void setOnTabReselectedListener(OnTabReselectedListener listener) {
         mTabReselectedListener = listener;
+    }
+    
+    public void setOnTabFocusChangeListener(OnTabFocusChangeListener listener)
+    {
+    	mTabFocusChangeListener = listener;
     }
 
     @Override
@@ -154,6 +185,7 @@ public class TabPageIndicator extends HorizontalScrollView implements PageIndica
         tabView.mIndex = index;
         tabView.setFocusable(true);
         tabView.setOnClickListener(mTabClickListener);
+        tabView.setOnFocusChangeListener(mFocusChangeListener);
         tabView.setText(text);
 
         if (iconResId != 0) {
@@ -161,6 +193,7 @@ public class TabPageIndicator extends HorizontalScrollView implements PageIndica
         }
 
         mTabLayout.addView(tabView, new LinearLayout.LayoutParams(0, MATCH_PARENT, 1));
+        tabView.setId(index);
     }
 
     @Override
@@ -237,7 +270,8 @@ public class TabPageIndicator extends HorizontalScrollView implements PageIndica
     @Override
     public void setCurrentItem(int item) {
         if (mViewPager == null) {
-            throw new IllegalStateException("ViewPager has not been bound.");
+        	return;// it does not mater if there no adapter at first
+            //throw new IllegalStateException("ViewPager has not been bound.");
         }
         mSelectedTabIndex = item;
         mViewPager.setCurrentItem(item);
@@ -248,6 +282,7 @@ public class TabPageIndicator extends HorizontalScrollView implements PageIndica
             final boolean isSelected = (i == item);
             child.setSelected(isSelected);
             if (isSelected) {
+            	mSelectedTabId = child.getId();
                 animateToTab(item);
             }
         }
